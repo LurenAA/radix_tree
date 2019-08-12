@@ -25,8 +25,8 @@
  **/
 #define radixLength(h) \
   (sizeof(radix_node) + padding(h->size) + h->size + \
-  h->is_compressed ? sizeof(radix_node*) : h->size * sizeof(radix_node*) + \
-  h->is_key ? sizeof(void*) : 0)
+  (h->is_compressed ? sizeof(radix_node*) : h->size * sizeof(radix_node*)) + \
+  (h->is_key ? sizeof(void*) : 0))
 
 /**
  * 获取值
@@ -41,24 +41,30 @@
   (radix_node**)((char*)&h->data + h->size + padding(h->size))
 
 /**
+ * 第n个子节点
+ **/
+#define radixNthChild(h, n) \
+  (radix_node**)((char*)&h->data + h->size + padding(h->size) + n * sizeof(void*))
+
+/**
  * 初始化一个基数树
  * @param null
  **/
 radix_tree* radixNewTree() {
   radix_tree* tree = (radix_tree*)malloc(sizeof(radix_tree));
   if(!tree) {
-    debugf("%s", strerror(errno));
+debugf("%s", strerror(errno));
     return NULL;
   }
   tree->root = radixNewNode(0, false, false);
   if(!tree->root) {
-    debugf("%s", strerror(errno));
+debugf("%s", strerror(errno));
     return NULL;
   }
   tree->key_numbers = 0;
   tree->node_numbers = 0;
 
-  debugf("init a radix_tree");
+debugf("init a radix_tree");
   return tree;
 }
 
@@ -71,11 +77,12 @@ radix_tree* radixNewTree() {
 radix_node* radixNewNode(int children, bool is_key, bool is_compressed) {
   int size = sizeof(radix_node) + children + 
     padding(children) + 
-    is_compressed ? sizeof(radix_node*) : sizeof(radix_node*) * children;
+    (is_compressed ? sizeof(radix_node*) : sizeof(radix_node*) * children);
+debugf("padding: %ld", padding(children));
   if(is_key) size += sizeof(void*);
   radix_node* node = (radix_node*)malloc(size);
   if(!node) {
-    debugf("%s", strerror(errno));
+debugf("%s", strerror(errno));
     return NULL;
   }
   node->is_compressed = is_compressed;
@@ -83,7 +90,7 @@ radix_node* radixNewNode(int children, bool is_key, bool is_compressed) {
   node->is_null = 0;
   node->is_key = is_key;
 
-  debugf("init a radix_node(%d)", size);
+debugf("init a radix_node(%d)", size);
   return node;
 }
 
@@ -100,7 +107,7 @@ uint8_t radixInsert(radix_tree* tree, char* key, int len,void* val) {
   radix_node *cur, **plink; //cur当前节点， plink父节点
   i = linkLowWalk(tree, key, &cur, &plink, &j);
 
-  debugf("linkLowWalk(i): %d", i);
+debugf("linkLowWalk(i): %d", i);
 
   if(cur->is_compressed && i != len) {
 
@@ -113,7 +120,7 @@ uint8_t radixInsert(radix_tree* tree, char* key, int len,void* val) {
       bool pIsKey = cur->is_key ? true : false;
       radix_node *node = radixNewNode(len, pIsKey, true);
       if(!node) {
-        debugf("insert error: %s", strerror(errno));
+    debugf("insert error: %s", strerror(errno));
         return 0;
       }
 
@@ -125,7 +132,7 @@ uint8_t radixInsert(radix_tree* tree, char* key, int len,void* val) {
       memcpy(plink, &node, sizeof(void*)); 
       radix_node *end = radixNewNode(0, true, false);
       if(!end) {
-        debugf("insert error: %s", strerror(errno));
+    debugf("insert error: %s", strerror(errno));
         return 0;
       }
       radixSetData(end, val);
@@ -173,6 +180,7 @@ int linkLowWalk(radix_tree* tree, const char* key,
 void radixSetData(radix_node* node, void* val) {
   if(!node->is_key) return ;
   void** valPtr = radixGetVal(node);
+debugf("%ld:%p", radixLength(node), *valPtr);
   memcpy(valPtr, &val, sizeof(void*));
 }
 
@@ -190,15 +198,43 @@ void* radixGetData(radix_node* node) {
 
 /**
  *  debug
+ *  @param: had 处理key值的函数
  **/ 
-void traversalDebug(radix_tree* tree) {
+void traversalDebug(radix_tree* tree, handle had) {
 #define RAX_LEN 100
+  fprintf(stderr, "**debug radix_tree**\n");
   if(!tree) return;
-  radix_node* nodes[RAX_LEN], *tar;
-  memset(nodes, 0, sizeof(radix_node*) * RAX_LEN);
-  int size = 1, ch_size = 0;
-  nodes[0] = tree->root;
-  while(size) {
-    
+  simpleQueue* q = simpleQueueFactory(RAX_LEN);
+  radix_node* tar = NULL;
+  push(q, tree->root);
+  int num = 1, ch_num = 0, count = 1;
+  fprintf(stderr, "level_%d:\t", count);
+  while(size(q)) {
+    tar = (radix_node*)front(q);
+    pop(q);
+    --num;
+    fprintf(stderr, "%.*s\t", tar->size, tar->data);
+    if(tar->is_key && had) {
+      fprintf(stderr,"is_key: 1\t");
+      had(radixGetData(tar));
+    }
+    if(tar->is_compressed) {
+      fprintf(stderr,"is_compressed: 1\t");
+      push(q, *radixFirstChild(tar));
+      ++ch_num;
+    }
+    else{
+      for(int i = 0; i < tar->size; i++){
+        push(q, *radixNthChild(tar, i));
+        ++ch_num;
+      } 
+    }
+    if(!num && ch_num) {
+      fprintf(stderr, "\nlevel_%d:\t", ++count);
+      num = ch_num;
+      ch_num = 0;
+    }
   }
+  fprintf(stderr, "\n**End Debug**\n");
+  free(q);
 }

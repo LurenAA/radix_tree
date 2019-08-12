@@ -8,7 +8,9 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
+#include "simpleQueue.h"
 
+typedef void (*handle)(void*);
 
 // 用位域处理，将四个域总体的大小限制到四个字节
 
@@ -33,5 +35,5 @@ uint8_t radixInsert(radix_tree* tree, char* key, int len, void* val);
 int linkLowWalk(radix_tree*, const char* ,radix_node**,radix_node***, int*);
 void radixSetData(radix_node* node, void* val);
 void* radixGetData(radix_node* node);
-void traversalDebug(radix_tree* tree);
+void traversalDebug(radix_tree* tree, handle had);
 #endif
