@@ -105,13 +105,103 @@ uint8_t radixInsert(radix_tree* tree, char* key, int len,void* val) {
   int i = 0; //当前key的结束点
   int j = 0; //在树中节点的结束处
   radix_node *cur, **plink; //cur当前节点， plink父节点
-  i = linkLowWalk(tree, key, &cur, &plink, &j);
+  i = linkLowWalk(tree, key, len, &cur, &plink, &j);
 
-debugf("linkLowWalk(i): %d", i);
-
+debugf("linkLowWalk(i:j): %d:%d", i, j);
+  /**
+   * 1.
+   *  alligator             l -> igator -> []
+   *              -> al ->
+   *  alien                 i -> en -> []        
+   * 2.
+   *  alligator          a  ->   lligator -> []   
+   *              ->        
+   *  pilipili           p  ->  ilipili  -> []
+   * 3.
+   *  abc                c  -> []
+   *       ->     ab -> 
+   *  abe                e -> []
+   **/ 
   if(cur->is_compressed && i != len) {
+    radix_node** p2next = radixFirstChild(cur),
+      *next;
+    memcpy(&next, p2next, sizeof(void*)); //save next
 
+    bool isBegin = (i == 0);
+    //创建cur代替节点
+    radix_node* new_cur = radixNewNode(isBegin ? 2 : 1, cur->is_key, isBegin ? false : true);
+    if(!new_cur) {
+debugf("%s", strerror(errno));
+      return -1;        
+    }
+    if(cur->is_key) {
+      void* data = radixGetData(cur);
+      void** new_cur_data = radixGetVal(new_cur);
+      memcpy(new_cur_data, &data, sizeof(void*));
+debugf("new_cur_data: %s", (char*)*new_cur_data);
+    }
+    memcpy(plink, &new_cur, sizeof(void*)); //代替cur
+
+    //创建cur后缀节点  
+    int suffix_len = cur->size - 1 - j;
+    radix_node* new_cur_suffix = radixNewNode(suffix_len, false, suffix_len > 1);
+    if(!new_cur_suffix) {
+debugf("%s", strerror(errno));
+      return -1;      
+    }
+    memcpy(&new_cur_suffix->data, cur->data + j + 1, suffix_len);
+debugf("new_cur_suffix: %s", (char*)new_cur_suffix->data);
+    memcpy(radixGetVal(new_cur_suffix), p2next, sizeof(void*));
+debugf("new_cur_suffix->key: %p", *radixFirstChild(new_cur_suffix));
+
+    //创建插入节点
+    int insert_dif_len = len - i - 1;
+    radix_node* insert_node = radixNewNode(insert_dif_len,false, insert_dif_len > 1);
+    if(!insert_node) {
+debugf("%s", strerror(errno));
+      return -1;
+    }
+    memcpy(insert_node->data, key + i + 1, insert_dif_len);
+debugf("insert_node->data: %s", (char*)&insert_node->data);  
+    //创建插入节点后继的key值节点
+    radix_node* insert_key = radixNewNode(0, true, false);
+    if(!insert_key) {
+debugf("%s", strerror(errno));
+      return -1;
+    }
+    void** insert_key_val = radixGetVal(insert_key);
+    memcpy(insert_key_val, &val, sizeof(void *));
+debugf("insert_key_val: %s", (char*)radixGetData(insert_key));
+    radix_node** insert_pos = radixFirstChild(insert_node);
+    memcpy(insert_pos, &insert_key, sizeof(radix_node*)); //放入父节点insert_node
+debugf("insert_node->key_ptr: %p", *radixFirstChild(insert_node));
+
+    //创建middleware节点
+    radix_node* midwar;
+    if(i != 0) {
+      memcpy(new_cur->data, cur->data, i );
+      midwar = radixNewNode(2, false, false);
+      if(!midwar) {
+  debugf("%s", strerror(errno));
+        return -1;              
+      }
+      midwar->data[0] = cur->data[j];
+      midwar->data[1] = key[i];
+      memcpy(radixNthChild(midwar, 0), &new_cur_suffix, sizeof(void*));
+      memcpy(radixNthChild(midwar, 1), &insert_node, sizeof(void*));
+      memcpy(radixFirstChild(new_cur), &midwar, sizeof(void*));
+    } else {
+      new_cur->data[0] = cur->data[j];
+      new_cur->data[1] = key[i];
+      memcpy(radixNthChild(new_cur, 0), &new_cur_suffix, sizeof(void*));
+      memcpy(radixNthChild(new_cur, 1), &insert_node, sizeof(void*));
+    }
+    free(cur);
+    return 1;
   } 
+  /**
+   * 
+   **/ 
   else if (cur->is_compressed && i == len){
 
   }
@@ -159,14 +249,34 @@ debugf("linkLowWalk(i): %d", i);
  *  @param：j 记录在cur中的索引
  *  @return: i key的索引
  **/ 
-int linkLowWalk(radix_tree* tree, const char* key,
+int linkLowWalk(radix_tree* tree, const char* key,int len,
   radix_node** cur,radix_node*** plink, int* j)
 {
   int i = 0, lj = 0;
   radix_node *lcur = tree->root,
     **lplink = &tree->root; 
-  while(lcur->size) {
-    //todo
+  while(lcur->size && i < len) {
+debugf("lcur->data: %.*s", lcur->size, lcur->data);
+    if(lcur->is_compressed) {
+      for(;lj < lcur->size && i < len; lj++) {
+        if(lcur->data[lj] == key[i]) {
+          i++;
+        } else 
+          break;
+      }
+      if(i == len || lcur->size != lj) break;
+    } else {
+      for(; lj < lcur->size && i < len; ++lj) {
+        if(lcur->data[lj] == key[i])
+          break;
+      }
+    }
+    radix_node** node = lcur->is_compressed ? 
+      radixFirstChild(lcur) :
+      radixNthChild(lcur, lj);
+    lplink = node;
+    memcpy(&lcur, node, sizeof(void*));
+    lj = 0;
   }
   *cur = lcur;
   *plink = lplink; 

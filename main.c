@@ -10,6 +10,8 @@ int main(int argc, char* argv[]) {
   radix_tree* tree = radixNewTree();
   if(!tree) return 1;
   radixInsert(tree, toadd[0], strlen(toadd[0]),(void*)"val");
+  radixInsert(tree, toadd[1], strlen(toadd[1]),(void*)"val1");
+  // radixInsert(tree, toadd[2], strlen(toadd[2]),(void*)"val2");
   traversalDebug(tree, string_had);
   /*
   test queue 

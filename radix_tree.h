@@ -32,7 +32,7 @@ typedef struct
 radix_tree* radixNewTree();
 radix_node* radixNewNode(int children, bool is_key, bool is_compressed);
 uint8_t radixInsert(radix_tree* tree, char* key, int len, void* val);
-int linkLowWalk(radix_tree*, const char* ,radix_node**,radix_node***, int*);
+int linkLowWalk(radix_tree*, const char* ,int ,radix_node**,radix_node***, int*);
 void radixSetData(radix_node* node, void* val);
 void* radixGetData(radix_node* node);
 void traversalDebug(radix_tree* tree, handle had);
