@@ -36,4 +36,7 @@ int linkLowWalk(radix_tree*, const char* ,int ,radix_node**,radix_node***, int*)
 void radixSetData(radix_node* node, void* val);
 void* radixGetData(radix_node* node);
 void traversalDebug(radix_tree* tree, handle had);
+radix_node* radixAddChild(radix_node* node, char* key, int len, void* val, int i);
+radix_node* radixRealloc(radix_node* );
+void showChildPtr(radix_node* nnew_cur);
 #endif
