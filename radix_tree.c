@@ -1,6 +1,5 @@
 #include "radix_tree.h"
 
-#define RADIX_DEBUG_MSG
 /**
  * 是否显示debug信息
  **/
@@ -129,57 +128,61 @@ debugf("linkLowWalk(i:j): %d:%d", i, j);
 
     bool isBegin = (i == 0);
     //创建cur代替节点
-    radix_node* new_cur = radixNewNode(isBegin ? 2 : i, cur->is_key, i > 1); // ?? is_compressed
+    radix_node* new_cur;
+    if(isBegin){
+      new_cur = radixNewNode(2, cur->is_key, false);
+    } else 
+      new_cur = radixNewNode(j, cur->is_key,  j > 1); 
     if(!new_cur) {
-debugf("%s", strerror(errno));
+    debugf("%s", strerror(errno));
       return -1;        
     }
     if(cur->is_key) {
       void* data = radixGetData(cur);
       void** new_cur_data = radixGetVal(new_cur);
       memcpy(new_cur_data, &data, sizeof(void*));
-debugf("new_cur_data: %s", (char*)*new_cur_data);
+    debugf("new_cur_data: %s", (char*)*new_cur_data);
     }
     memcpy(plink, &new_cur, sizeof(void*)); //代替cur
 
     //创建cur后缀节点  
-    int suffix_len = cur->size - 1 - j;
+    int suffix_len = cur->size - j - 1;
     radix_node* new_cur_suffix = radixNewNode(suffix_len, false, suffix_len > 1);
     if(!new_cur_suffix) {
-debugf("%s", strerror(errno));
+  debugf("%s", strerror(errno));
       return -1;      
     }
     memcpy(&new_cur_suffix->data, cur->data + j + 1, suffix_len);
-debugf("new_cur_suffix: %s", (char*)new_cur_suffix->data);
+  debugf("new_cur_suffix: %s", (char*)new_cur_suffix->data);
     memcpy(radixGetVal(new_cur_suffix), p2next, sizeof(void*));
-debugf("new_cur_suffix->key: %p", *radixFirstChild(new_cur_suffix));
+  debugf("new_cur_suffix->key: %p", *radixFirstChild(new_cur_suffix));  
 
     //创建插入节点
     int insert_dif_len = len - i - 1;
     radix_node* insert_node = radixNewNode(insert_dif_len,false, insert_dif_len > 1);
     if(!insert_node) {
-debugf("%s", strerror(errno));
+  debugf("%s", strerror(errno));
       return -1;
     }
     memcpy(insert_node->data, key + i + 1, insert_dif_len);
-debugf("insert_node->data: %s", (char*)&insert_node->data);  
+  debugf("insert_node->data: %s", (char*)&insert_node->data);  
     //创建插入节点后继的key值节点
     radix_node* insert_key = radixNewNode(0, true, false);
     if(!insert_key) {
-debugf("%s", strerror(errno));
+  debugf("%s", strerror(errno));
       return -1;
     }
     void** insert_key_val = radixGetVal(insert_key);
     memcpy(insert_key_val, &val, sizeof(void *));
-debugf("insert_key_val: %s", (char*)radixGetData(insert_key));
+  debugf("insert_key_val: %s", (char*)radixGetData(insert_key));
     radix_node** insert_pos = radixFirstChild(insert_node);
     memcpy(insert_pos, &insert_key, sizeof(radix_node*)); //放入父节点insert_node
-debugf("insert_node->key_ptr: %p", *radixFirstChild(insert_node));
+  debugf("insert_node->key_ptr: %p", *radixFirstChild(insert_node));
 
     //创建middleware节点
     radix_node* midwar;
     if(i != 0) {
-      memcpy(new_cur->data, cur->data, i );
+      memcpy(new_cur->data, cur->data, j);
       midwar = radixNewNode(2, false, false);
       if(!midwar) {
   debugf("%s", strerror(errno));
@@ -213,29 +216,55 @@ debugf("insert_node->key_ptr: %p", *radixFirstChild(insert_node));
   else {
     if(!cur->size) { //避免形成链式
       bool pIsKey = cur->is_key ? true : false;
-      radix_node *node = radixNewNode(len, pIsKey, true);
-      if(!node) {
-    debugf("insert error: %s", strerror(errno));
-        return 0;
+      /**
+       *  null -> any string
+       **/ 
+      if(!pIsKey) {
+        radix_node *node = radixNewNode(len, pIsKey, true);
+        if(!node) {
+      debugf("insert error: %s", strerror(errno));
+          return 0;
+        }
+        memcpy(&node->data, key, len); 
+      debugf("node->data: %.*s", len, (char*)&node->data);
+        memcpy(plink, &node, sizeof(void*)); 
+        radix_node *end = radixNewNode(0, true, false);
+        if(!end) {
+      debugf("insert error: %s", strerror(errno));
+          return 0;
+        }
+        radixSetData(end, val);
+      debugf("end->val: %s", (char*)radixGetData(end));
+        radix_node **firstChild = radixFirstChild(node);
+        memcpy(firstChild, &end, sizeof(radix_node*));
+      debugf("first_child: 0x%p", *firstChild);
+        return 1;
+      } 
+      /**
+       * abc -> []
+       *    |
+       *   \/
+       * abc -> [asd] -> []
+       **/ 
+      else {
+        int dif = len - i;
+        radix_node* new_cur = radixRealloc(cur, dif, 1);
+        if(new_cur == NULL) {
+      debugf("error in radixRealloc");
+          return -1;
+        }
+        memcpy(plink, &new_cur, sizeof(void*));
+      debugf("plink->child: %p", *plink);
+        memcpy(new_cur->data, key + i, dif);
+      debugf("data: %.*s", dif, new_cur->data);
+        //构造新的key节点
+        radix_node* new_key = radixNewNode(0, true, false);
+        memcpy(radixGetVal(new_key), &val, sizeof(void*));
+      debugf("val: %p", *radixGetVal(new_key));
+        memcpy(radixFirstChild(new_cur), &new_key, sizeof(void*));
+      debugf("first_child: %p", *radixFirstChild(new_cur));
+        return 1;
       }
-
-      if(cur->is_key) {
-        // char *val = 
-      }
-      memcpy(&node->data, key, len); 
-    debugf("node->data: %.*s", len, (char*)&node->data);
-      memcpy(plink, &node, sizeof(void*)); 
-      radix_node *end = radixNewNode(0, true, false);
-      if(!end) {
-    debugf("insert error: %s", strerror(errno));
-        return 0;
-      }
-      radixSetData(end, val);
-    debugf("end->val: %s", (char*)radixGetData(end));
-      radix_node **firstChild = radixFirstChild(node);
-      memcpy(firstChild, &end, sizeof(radix_node*));
-    debugf("first_child: 0x%p", *firstChild);
-      return 1;
     } 
     /**
      *  asd-> a -> bac -> kkk -> []
@@ -280,10 +309,13 @@ debugf("lcur->data: %.*s", lcur->size, lcur->data);
           break;
       }
       if(i == len || lcur->size != lj) break;
-    } else {
+    } 
+    else {
       for(; lj < lcur->size && i < len; ++lj) {
-        if(lcur->data[lj] == key[i])
+        if(lcur->data[lj] == key[i]){
+          ++i;
           break;
+        }
       }
       if(lj == lcur->size) break;
     }
@@ -329,7 +361,7 @@ void* radixGetData(radix_node* node) {
 radix_node* radixAddChild(radix_node* node, char* key, int len, void* val, int i) {
   int size = len - i;
   //创建要添加的节点
-  radix_node* new_cur = radixRealloc(node);
+  radix_node* new_cur = radixRealloc(node, 1, 0);
   if(new_cur == NULL) {
 debugf("error in radixRealloc");
     return new_cur;
@@ -372,27 +404,29 @@ debugf("newOne->data: %.*s", new_cur->size, new_cur->data);
 /**
  * 修改一个节点的大小
  **/ 
-radix_node* radixRealloc(radix_node* node) {
+radix_node* radixRealloc(radix_node* node, int num, int compr) {
 // debugf("node->data: %p", node->data);
   int old_size = radixLength(node);
   int old_firch = (char*)radixFirstChild(node) - (char*)node;
   int old_val = -1;
   if(node->is_key) 
-    old_val = *(radix_node**)radixGetVal(node) - node;
-  int new_size = sizeof(radix_node) + padding(node->size + 1) + node->size + 1
-    + sizeof(radix_node*) * (node->size + 1) + (node->is_key ? sizeof(void*) : 0);
+    old_val = (char*)radixGetVal(node) - (char*)node;
+  node->is_compressed = compr;
+  int new_size = sizeof(radix_node) + padding(node->size + num) + node->size + num
+    + (compr ? sizeof(radix_node*) : sizeof(radix_node*) * (node->size + num)) 
+    + (node->is_key ? sizeof(void*) : 0);
   radix_node* t = (radix_node*)realloc(node, new_size);
   if(!t) {
 debugf("realloc error: %s", strerror(errno));
     return node;    
   }
-  t->size += 1;
-  //宏定义函数要注意（）
-// debugf("before_memmove: %p:%ld:%p:%p", radixFirstChild(t), radixLength(t), t->data,(char*)&t->data + t->size + padding(t->size));
+  t->size += num;
   memmove(radixFirstChild(t), (char*)t + old_firch, (old_size - old_firch));
-  //注意单位
-debugf("old_data: %p:%p", t + old_firch, (char*)t + old_firch);
-  showChildPtr(t);
+  if(t->is_key){
+    memmove(radixGetVal(t), (char*)t + old_val, sizeof(void*));
+    debugf("old_key: %s", (char*)radixGetData(t));
+  }
+  // showChildPtr(t);
 
   return t;
 }
@@ -415,31 +449,38 @@ void traversalDebug(radix_tree* tree, handle had) {
   radix_node* tar = NULL;
   push(q, tree->root);
   int num = 1, ch_num = 0, count = 1;
-  fprintf(stderr, "level_%d:\t", count);
+  fprintf(stderr, "level_%d:\n", count);
   while(size(q)) {
     tar = (radix_node*)front(q);
     pop(q);
     --num;
-    if(tar->is_key && had) {
-      // fprintf(stderr,"is_key: 1\t");
-      had(radixGetData(tar));
-    }
+    fprintf(stderr, "[ addr: %p|", tar); 
+    fprintf(stderr,"is_key: %s|", tar->is_key ? "1" : "0");
+    fprintf(stderr,"is_cpd: %s|", tar->is_compressed ? "1" : "0");
     if(tar->is_compressed) {
-      fprintf(stderr, "%.*s\t", tar->size, tar->data);
-      // fprintf(stderr,"is_compressed: 1\t");
+      fprintf(stderr, "data: %.*s|ptr:%p|", tar->size, tar->data, *radixFirstChild(tar));
       push(q, *radixFirstChild(tar));
       ++ch_num;
     } 
     else{
+      fprintf(stderr, "data:");
       for(int i = 0; i < tar->size; i++){
-        fprintf(stderr, "%c;", *(tar->data + i));
+        fprintf(stderr, "%c|", *(tar->data + i));
         push(q, *radixNthChild(tar, i));
         ++ch_num;
       }
-      fprintf(stderr, "\t");
+      if(!tar->size) fprintf(stderr," null|");
+      fprintf(stderr, "ptr: ");
+      for(int i = 0; i < tar->size; i++){
+        fprintf(stderr, "%p|", *radixNthChild(tar, i));
+      }
     }
+    if(tar->is_key && had) {
+      had(radixGetData(tar));
+    }
+    fprintf(stderr, "]\n");
     if(!num && ch_num) {
-      fprintf(stderr, "\nlevel_%d:\t", ++count);
+      fprintf(stderr, "\nlevel_%d:\n", ++count);
       num = ch_num;
       ch_num = 0;
     }
