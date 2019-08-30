@@ -1,6 +1,6 @@
 #include "radix_tree.h"
 #include "simpleQueue.h"
-char *toadd[] = {"alligator","alien", "allibbc","baloon","chromodynamic","alligatorbbn","romane","romanus","romulus","rubens","ruber","rubicon","rubicundus","all","rub","ba",NULL};
+char *toadd[] = {"alligator", "all", "alien", "allibbc","baloon","chromodynamic","alligatorbbn","romane","romanus","romulus","rubens","ruber","rubicon","rubicundus","all","rub",NULL};
 void string_had(void *);
 
 int main(int argc, char* argv[]) {
@@ -9,12 +9,13 @@ int main(int argc, char* argv[]) {
   */
   radix_tree* tree = radixNewTree();
   if(!tree) return 1;
-  radixInsert(tree, toadd[0], strlen(toadd[0]),(void*)"val");
-  radixInsert(tree, toadd[1], strlen(toadd[1]),(void*)"val1");
-  radixInsert(tree, toadd[2], strlen(toadd[2]),(void*)"val2");
-  radixInsert(tree, toadd[3], strlen(toadd[3]),(void*)"val3");
-  radixInsert(tree, toadd[4], strlen(toadd[4]),(void*)"val4");
-  radixInsert(tree, toadd[5], strlen(toadd[5]),(void*)"val5");
+  int num = 0;
+  for(char **p = toadd; *p != NULL; ++p , ++num);
+  fprintf(stderr, "num: %d\n", num);
+  for(int i = 0; i < 10; ++i) {
+    radixInsert(tree, toadd[i], strlen(toadd[i]), (void*)toadd[i]);
+  }
+  radixInsert(tree, "alligator", strlen("alligator"), (void*)"bbbb");
   traversalDebug(tree, string_had);
   /*
   test queue 
