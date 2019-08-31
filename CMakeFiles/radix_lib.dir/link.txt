@@ -1,2 +1,0 @@
-/usr/bin/ar qc libradix_lib.a  CMakeFiles/radix_lib.dir/radix_tree.c.o
-/usr/bin/ranlib libradix_lib.a

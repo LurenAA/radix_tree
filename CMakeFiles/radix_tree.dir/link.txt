@@ -1,1 +1,0 @@
-/usr/bin/cc   -rdynamic CMakeFiles/radix_tree.dir/main.c.o  -o radix_tree libradix_lib.a libqueue.a 
