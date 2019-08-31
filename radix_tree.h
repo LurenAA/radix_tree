@@ -37,6 +37,7 @@ void radixSetData(radix_node* node, void* val);
 void* radixGetData(radix_node* node);
 void traversalDebug(radix_tree* tree, handle had);
 radix_node* radixAddChild(radix_node* node, char* key, int len, void* val, int i);
-radix_node* radixRealloc(radix_node* ,int, int );
+radix_node* radixRealloc(radix_node* ,int, int ); //添加一个data
+radix_node* radixRealloc2(radix_node*); //添加val域
 void showChildPtr(radix_node* nnew_cur);
 #endif

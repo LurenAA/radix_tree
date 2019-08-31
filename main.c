@@ -1,6 +1,20 @@
 #include "radix_tree.h"
 #include "simpleQueue.h"
-char *toadd[] = {"alligator", "all", "alien", "allibbc","baloon","chromodynamic","alligatorbbn","romane","romanus","romulus","rubens","ruber","rubicon","rubicundus","all","rub",NULL};
+char *toadd[] = {"alligator", 
+"all", 
+"alien", 
+"allibbc",
+"baloon",
+"chromodynamic",
+"alligatorbbn",
+"romane",
+"romanus",
+"romulus",
+"rubens",
+"ruber",
+"rubicon",
+"rubicundus",
+"rub",NULL};
 void string_had(void *);
 
 int main(int argc, char* argv[]) {
@@ -12,10 +26,10 @@ int main(int argc, char* argv[]) {
   int num = 0;
   for(char **p = toadd; *p != NULL; ++p , ++num);
   fprintf(stderr, "num: %d\n", num);
-  for(int i = 0; i < 10; ++i) {
+  for(int i = 0; i < num; ++i) {
     radixInsert(tree, toadd[i], strlen(toadd[i]), (void*)toadd[i]);
   }
-  radixInsert(tree, "alligator", strlen("alligator"), (void*)"bbbb");
+  // radixInsert(tree, "alli", strlen("alli"), (void*)"bbbb");
   traversalDebug(tree, string_had);
   /*
   test queue 
