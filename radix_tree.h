@@ -32,12 +32,12 @@ typedef struct
 
 radix_tree* radixNewTree();
 radix_node* radixNewNode(int children, bool is_key, bool is_compressed);
-uint8_t radixInsert(radix_tree* tree, char* key, int len, void* val);
+uint8_t radixInsert(radix_tree* tree, const char* key, int len, void* val);
 int linkLowWalk(radix_tree*, const char* ,int ,radix_node**,radix_node***, int*);
 void radixSetData(radix_node* node, void* val);
 void* radixGetData(radix_node* node);
 void traversalDebug(radix_tree* tree, handle had);
-radix_node* radixAddChild(radix_node* node, char* key, int len, void* val, int i);
+radix_node* radixAddChild(radix_node* node,const char* key, int len, void* val, int i);
 radix_node* radixRealloc(radix_node* ,int, int ); //添加一个data
 radix_node* radixRealloc2(radix_node*); //添加val域
 void showChildPtr(radix_node* nnew_cur);

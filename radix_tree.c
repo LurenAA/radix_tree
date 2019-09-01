@@ -106,7 +106,7 @@ radix_node *radixNewNode(int children, bool is_key, bool is_compressed)
  * @param: val 值
  * @return: 1插入成功，0插入失败,2覆盖原来的
  **/
-uint8_t radixInsert(radix_tree *tree, char *key, int len, void *val)
+uint8_t radixInsert(radix_tree *tree,const char *key, int len, void *val)
 {
   int i = 0;                //当前key的结束点
   int j = 0;                //在树中节点的结束处
@@ -483,7 +483,7 @@ void *radixGetData(radix_node *node)
  * 在非压缩节点中添加子节点
  * @param: i 字符不同点
  **/
-radix_node *radixAddChild(radix_node *node, char *key, int len, void *val, int i)
+radix_node *radixAddChild(radix_node *node,const char *key, int len, void *val, int i)
 {
   int size = len - i;
   //创建要添加的节点
