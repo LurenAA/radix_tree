@@ -575,7 +575,7 @@ radix_node *radixRealloc2(radix_node *node)
     return NULL;
   if (node->is_key)
     return node;
-  int new_size = node->size + sizeof(void *);
+  int new_size = radixLength(node) + sizeof(void *);
   node->is_key = true;
   radix_node *newNode = (radix_node *)realloc(node, new_size);
   return newNode;
@@ -649,4 +649,35 @@ void traversalDebug(radix_tree *tree, handle had)
   }
   fprintf(stderr, "\n**End Debug**\n");
   free(q);
+}
+
+void* route(radix_tree* tree, const char* path) {
+  if(!tree) 
+    return NULL;
+  radix_node* root = tree->root;
+  int pathLen = strlen(path);
+  int i = 0, 
+    j = 0;
+  while(i != pathLen && root) {
+    if(root->is_compressed) {
+      int cmpRes = strncasecmp(path + i, root->data, root->size);
+      if(cmpRes) {
+        return NULL;
+      }
+      i += root->size; 
+    } else {
+      for(j = 0; j < root->size; ++j) {
+        if(*(path + i) == root->data[j]) {
+          break;
+        }
+      }
+      if(j == root->size) 
+        return NULL;
+      i += 1;
+    }
+    root = (root->is_compressed) ? *radixFirstChild(root) : *radixNthChild(root, j);
+  }
+  if(i != pathLen)
+    return NULL;
+  return (root && root->is_key) ? radixGetData(root) : NULL;
 }

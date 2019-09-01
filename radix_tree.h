@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
+#include <strings.h>
 #include "simpleQueue.h"
 
 typedef void (*handle)(void*);
@@ -40,4 +41,6 @@ radix_node* radixAddChild(radix_node* node, char* key, int len, void* val, int i
 radix_node* radixRealloc(radix_node* ,int, int ); //添加一个data
 radix_node* radixRealloc2(radix_node*); //添加val域
 void showChildPtr(radix_node* nnew_cur);
+
+void* route(radix_tree* tree, const char* path);
 #endif
